@@ -1,93 +1,92 @@
-const express = require('express')
-const mongoose = require('mongoose')
-const Product = require('./models/productModel')
-const app = express()
+const express = require('express');
+const mongoose = require('mongoose');
+const methodOverride = require('method-override');
+const Product = require('./models/productModel');
 
-app.use(express.json())
-app.use(express.urlencoded({extended: false}))
+const app = express();
 
-//routes
+// Middleware
+app.set('view engine', 'ejs');
+app.use(express.urlencoded({ extended: false }));
+app.use(methodOverride('_method'));
 
+// MongoDB Connection
+mongoose.connect('mongodb+srv://pradeep:6O6tJYeS0vKUeyvg@cluster0.qlorrai.mongodb.net/Node-API?retryWrites=true&w=majority', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+}).then(() => {
+    console.log('Connected to MongoDB');
+}).catch((error) => {
+    console.log(error);
+});
+
+// Define route handler for root URL
 app.get('/', (req, res) => {
-    res.send('Hello NODE API')
-})
+    res.redirect('/products');
+});
 
-app.get('/blog', (req, res) => {
-    res.send('Hello Blog, My name is Devtamin')
-})
+// Routes
 
-app.get('/products', async(req, res) => {
+// Index route - display all products
+app.get('/products', async (req, res) => {
     try {
         const products = await Product.find({});
-        res.status(200).json(products);
+        res.render('index', { products });
     } catch (error) {
-        res.status(500).json({message: error.message})
+        res.status(500).json({ message: error.message });
     }
-})
+});
 
-app.get('/products/:id', async(req, res) =>{
+// New route - display form for adding new product
+app.get('/products/new', (req, res) => {
+    res.render('new');
+});
+
+// Create route - add new product to database
+app.post('/products', async (req, res) => {
     try {
-        const {id} = req.params;
+        await Product.create(req.body);
+        res.redirect('/products');
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Edit route - display form for editing product
+app.get('/products/:id/edit', async (req, res) => {
+    try {
+        const { id } = req.params;
         const product = await Product.findById(id);
-        res.status(200).json(product);
+        res.render('edit', { product });
     } catch (error) {
-        res.status(500).json({message: error.message})
+        res.status(500).json({ message: error.message });
     }
-})
+});
 
-
-app.post('/products', async(req, res) => {
+// Update route - update product in database
+app.put('/products/:id', async (req, res) => {
     try {
-        const product = await Product.create(req.body)
-        res.status(200).json(product);
-        
+        const { id } = req.params;
+        await Product.findByIdAndUpdate(id, req.body);
+        res.redirect('/products');
     } catch (error) {
-        console.log(error.message);
-        res.status(500).json({message: error.message})
+        res.status(500).json({ message: error.message });
     }
-})
+});
 
-// update a product
-app.put('/products/:id', async(req, res) => {
+// Delete route - remove product from database
+app.delete('/products/:id', async (req, res) => {
     try {
-        const {id} = req.params;
-        const product = await Product.findByIdAndUpdate(id, req.body);
-        // we cannot find any product in database
-        if(!product){
-            return res.status(404).json({message: `cannot find any product with ID ${id}`})
-        }
-        const updatedProduct = await Product.findById(id);
-        res.status(200).json(updatedProduct);
-        
+        const { id } = req.params;
+        await Product.findByIdAndDelete(id);
+        res.redirect('/products');
     } catch (error) {
-        res.status(500).json({message: error.message})
+        res.status(500).json({ message: error.message });
     }
-})
+});
 
-// delete a product
-
-app.delete('/products/:id', async(req, res) =>{
-    try {
-        const {id} = req.params;
-        const product = await Product.findByIdAndDelete(id);
-        if(!product){
-            return res.status(404).json({message: `cannot find any product with ID ${id}`})
-        }
-        res.status(200).json(product);
-        
-    } catch (error) {
-        res.status(500).json({message: error.message})
-    }
-})
-
-mongoose.set("strictQuery", false)
-mongoose.
-connect('mongodb+srv://admin:12345678Admin@devtaminapi.zpncstm.mongodb.net/Node-API?retryWrites=true&w=majority')
-.then(() => {
-    console.log('connected to MongoDB')
-    app.listen(3000, ()=> {
-        console.log(`Node API app is running on port 3000`)
-    });
-}).catch((error) => {
-    console.log(error)
-})
+// Start server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
